@@ -6,10 +6,19 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from subprocess import Popen, PIPE
 from threading import Thread
+from typing import Optional
 from urllib.parse import urljoin
 
 
 class StaticMockServer:
+    """A web server that serves the contents of the sibling "site" directory.
+    To be used as a context manager:
+
+        with StaticMockServer() as server:
+            url = server.urljoin("/index.html")
+            ...
+    """
+
     def __enter__(self):
         self.proc = Popen(
             [sys.executable, "-u", "-m", "http.server", "0", "--bind", "127.0.0.1"],
@@ -27,7 +36,7 @@ class StaticMockServer:
         self.proc.communicate()
 
     def urljoin(self, url):
-        return urljoin("http://{}:{}".format(self.address, self.port), url)
+        return urljoin(f"http://{self.address}:{self.port}", url)
 
 
 class _RequestHandler(BaseHTTPRequestHandler):
@@ -58,6 +67,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
 
 
 class MockServer:
+    """A context manager web server using the _RequestHandler class to handle requests."""
+
     def __enter__(self):
         self.httpd = HTTPServer(("127.0.0.1", 0), _RequestHandler)
         self.address, self.port = self.httpd.server_address
@@ -69,8 +80,8 @@ class MockServer:
         self.httpd.shutdown()
         self.thread.join()
 
-    def urljoin(self, url: str) -> str:
-        return urljoin("http://{}:{}".format(self.address, self.port), url)
+    def urljoin(self, url: Optional[str] = None) -> str:
+        return urljoin(f"http://{self.address}:{self.port}", url)
 
 
 if __name__ == "__main__":
